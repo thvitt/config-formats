@@ -3,23 +3,16 @@ name = "config-formats"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Thorsten Vitt", email = "thorsten.vitt@uni-wuerzburg.de" }
-]
+authors = [{ name = "Thorsten Vitt", email = "thorsten.vitt@uni-wuerzburg.de" }]
 requires-python = ">=3.12"
-dependencies = [
-    "sexpdata>=1.0.2",
-    "tomli-w>=1.2.0",
-]
+dependencies = ["cyclopts>=3.12.0", "sexpdata>=1.0.2", "tomli-w>=1.2.0"]
 
 [project.scripts]
-config-formats = "config_formats:main"
+config-formats = "config_formats:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-]
+dev = ["pytest>=8.3.5"]
