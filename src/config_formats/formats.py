@@ -61,3 +61,39 @@ class YAML(Format):
 
         # passing our stream directly to yaml.dump causes a type error
         stream.write(dump(data, Dumper=Dumper).encode(encoding="utf-8"))
+
+
+class SEXP(Format):
+    name = "sexp"
+    suffixes = [".sexp"]
+    label = "S-Expression"
+
+    def load(self, stream: IO[bytes]) -> Any:
+        from sexpdata import load
+
+        return load(stream)
+
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
+        from sexpdata import dump
+
+        dump(data, TextIOWrapper(stream))
+
+
+class Python(Format):
+    name = "python"
+    suffixes = [".py"]
+    label = "Python"
+
+    def load(self, stream: IO[bytes]) -> Any:
+        from ast import literal_eval
+
+        return literal_eval(stream.read().decode("utf-8"))
+
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
+        out = TextIOWrapper(stream)
+        if pretty:
+            from pprint import pprint
+
+            pprint(data, out)
+        else:
+            out.write(repr(data))
