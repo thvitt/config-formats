@@ -6,6 +6,7 @@ from typing import Any
 
 from cyclopts import App
 from rich.logging import RichHandler
+from rich.console import Console
 
 from .base import Format, PersistentBytesIO
 from .formats import DEFAULT_FORMAT
@@ -35,7 +36,7 @@ def autodetect_read(src: Path | None) -> tuple[Any, Format]:
             format = format_type(src or src_data)
             return format, format.read()
         except Exception as e:
-            logger.debug("%s is not a %s: %s", src or "stdin", format_type.name, e)
+            logger.info("%s is not a %s: %s", src or "stdin", format_type.name, e)
             if src_data:
                 src_data.seek(0)
     raise ValueError("No format was able to read the source")
@@ -70,7 +71,7 @@ def convert(
     """
     logging.basicConfig(
         level=logging.DEBUG,
-        handlers=[RichHandler(show_time=False)],
+        handlers=[RichHandler(show_time=False, console=Console(stderr=True))],
         format="%(message)s",
     )
 

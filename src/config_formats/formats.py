@@ -1,4 +1,5 @@
 from io import TextIOWrapper
+
 from .base import Format, dumb_down
 from typing import IO, Any, Mapping
 
@@ -43,3 +44,20 @@ class TOML(Format):
         if not isinstance(processed_data, Mapping):
             processed_data = {"DEFAULT": processed_data}
         tomli_w.dump(processed_data, stream, multiline_strings=pretty)
+
+
+class YAML(Format):
+    name = "yaml"
+    suffixes = [".yaml", ".yml"]
+    label = "YAML"
+
+    def load(self, stream: IO[bytes]) -> Any:
+        from yaml import load, Loader
+
+        return load(stream, Loader=Loader)
+
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
+        from yaml import dump, Dumper
+
+        # passing our stream directly to yaml.dump causes a type error
+        stream.write(dump(data, Dumper=Dumper).encode(encoding="utf-8"))

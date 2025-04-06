@@ -4,6 +4,9 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from pathlib import Path
 from typing import IO, Any, ClassVar, Iterable, Mapping, Type
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def dumb_down(data: Any) -> list | dict | str | int | float | bool | None:
@@ -60,7 +63,7 @@ class Format(ABC):
         elif isinstance(path, Path):
             self.path = path
         else:
-            self.io = path
+            self.stream = path
 
     def __init_subclass__(cls):
         Format.registry[cls.name] = cls
@@ -86,6 +89,15 @@ class Format(ABC):
                 self.dump(data, f, pretty)
         elif self.stream:
             self.dump(data, self.stream, pretty)
+
+    def __repr__(self) -> str:
+        if self.use_stdinout:
+            what = "stdin/stdout"
+        elif self.path:
+            what = str(self.path)
+        else:
+            what = f"a {type(self.stream)}"
+        return f"<{self.__class__.__name__}: {self.label} Formatter ({self.name}) for <{what}>"
 
 
 class PersistentBytesIO(BytesIO):
