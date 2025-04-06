@@ -7,8 +7,10 @@ from typing import Any
 from cyclopts import App
 from rich.logging import RichHandler
 
-from .base import Format
+from .base import Format, PersistentBytesIO
 from .formats import DEFAULT_FORMAT
+import rich
+from rich.syntax import Syntax
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,14 @@ def autodetect_read(src: Path | None) -> tuple[Any, Format]:
     raise ValueError("No format was able to read the source")
 
 
+def should_print_highlighted(pretty: bool) -> bool:
+    if pretty:
+        console = rich.get_console()
+        return console.is_terminal and not console.is_dumb_terminal
+    else:
+        return False
+
+
 @app.default
 def convert(
     src: Path | None = None,
@@ -47,6 +57,7 @@ def convert(
     *,
     from_: str | None = None,
     to_: str | None = None,
+    pretty: bool | None = None,
 ):
     """
     Convert between configuration formats.
@@ -80,4 +91,18 @@ def convert(
             f"Unknown source format: {from_}. Must be one of {', '.join(Format.registry)}"
         )
 
-    Format.registry[to_](dst).write(data)
+    if pretty is None:
+        pretty = dst is None
+
+    dst_format = Format.registry[to_](dst)
+
+    if dst is None and should_print_highlighted(pretty):
+        buf = PersistentBytesIO()
+        dst_format.dump(data, buf, pretty)
+        rich.get_console().print(
+            Syntax(
+                buf.getvalue().decode("utf-8", errors="replace"), lexer=dst_format.name
+            )
+        )
+    else:
+        dst_format.write(data, pretty)

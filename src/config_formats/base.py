@@ -1,3 +1,4 @@
+from io import BytesIO
 import sys
 from abc import ABC, abstractmethod
 from numbers import Number
@@ -41,33 +42,57 @@ class Format(ABC):
     name: ClassVar[str]
     suffixes: ClassVar[list[str]]
     label: ClassVar[str]
-
     registry: ClassVar[dict[str, Type]] = {}
 
-    def __init__(self, path: Path | None):
-        self.path = path
-
-    def __init_subclass__(cls):
-        Format.registry[cls.name] = cls
-
-    def read(self) -> Any:
-        if self.path is None:
-            return self.load(sys.stdin.buffer)
-        elif hasattr(self.path, "open"):
-            with self.path.open("rb") as f:
-                return self.load(f)
-        else:
-            return self.load(self.path)
-
-    def write(self, data: Any) -> None:
-        if self.path is None:
-            self.dump(data, sys.stdout.buffer)
-        else:
-            with self.path.open("wb") as f:
-                self.dump(data, f)
+    use_stdinout: bool = False
+    path: Path | None = None
+    stream: IO | None = None
 
     @abstractmethod
     def load(self, stream: IO[bytes]) -> Any: ...
 
     @abstractmethod
-    def dump(self, data: Any, stream: IO[bytes]) -> None: ...
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None: ...
+
+    def __init__(self, path: Path | IO | None):
+        if path is None:
+            self.use_stdinout = True
+        elif isinstance(path, Path):
+            self.path = path
+        else:
+            self.io = path
+
+    def __init_subclass__(cls):
+        Format.registry[cls.name] = cls
+
+    def read(self) -> Any:
+        if self.use_stdinout:
+            return self.load(sys.stdin.buffer)
+        elif self.path:
+            with self.path.open("rb") as f:
+                return self.load(f)
+        elif self.stream:
+            return self.load(self.stream)
+        else:
+            raise ValueError(
+                f"Format {self.name} has neither path nor stream, this is probably a bug."
+            )
+
+    def write(self, data: Any, pretty: bool = False) -> None:
+        if self.use_stdinout:
+            self.dump(data, sys.stdout.buffer, pretty)
+        elif self.path:
+            with self.path.open("wb") as f:
+                self.dump(data, f, pretty)
+        elif self.stream:
+            self.dump(data, self.stream, pretty)
+
+
+class PersistentBytesIO(BytesIO):
+    def close(self):
+        pass
+
+    def getvalue(self) -> bytes:
+        result = super().getvalue()
+        super().close()
+        return result

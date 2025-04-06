@@ -15,10 +15,12 @@ class JSON(Format):
 
         return json.load(stream)
 
-    def dump(self, data: Any, stream: IO[bytes]) -> None:
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import json
 
-        json.dump(dumb_down(data), TextIOWrapper(stream, encoding="utf-8"))
+        options = {"indent": 4, "ensure_ascii": False} if pretty else {}
+
+        json.dump(dumb_down(data), TextIOWrapper(stream, encoding="utf-8"), **options)
 
 
 class TOML(Format):
@@ -34,10 +36,10 @@ class TOML(Format):
             data = data["DEFAULT"]
         return data
 
-    def dump(self, data: Any, stream: IO[bytes]) -> None:
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import tomli_w
 
         processed_data = dumb_down(data)
         if not isinstance(processed_data, Mapping):
             processed_data = {"DEFAULT": processed_data}
-        tomli_w.dump(processed_data, stream)
+        tomli_w.dump(processed_data, stream, multiline_strings=pretty)
