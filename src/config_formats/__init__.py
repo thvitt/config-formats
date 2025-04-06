@@ -1,13 +1,14 @@
+import io
+import logging
+import sys
 from abc import ABC, ABCMeta, abstractmethod
 from numbers import Number
-from typing import IO, Any, Type, ClassVar, Iterable, Mapping
 from pathlib import Path
-import io
-import sys
+from typing import IO, Any, ClassVar, Iterable, Mapping, Type
+
 from cyclopts import App
-from rich.pretty import pprint
-import logging
 from rich.logging import RichHandler
+from rich.pretty import pprint
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,9 @@ def autodetect_read(src: Path | None) -> tuple[Any, Format]:
     raise ValueError("No format was able to read the source")
 
 
+DEFAULT_FORMAT = "json"
+
+
 @app.default
 def convert(
     src: Path | None = None,
@@ -171,6 +175,8 @@ def convert(
         from_ = format_for(src)
     if to_ is None and dst is not None:
         to_ = format_for(dst)
+    if to_ is None:
+        to_ = DEFAULT_FORMAT
 
     if from_ is None:
         src_format, data = autodetect_read(src)
@@ -182,4 +188,4 @@ def convert(
             f"Unknown source format: {from_}. Must be one of {', '.join(Format.registry)}"
         )
 
-    pprint(data)
+    Format.registry[to_](dst).write(data)
