@@ -80,6 +80,7 @@ class SEXP(Format):
 
 
 class Python(Format):
+    """Python literals. Does not execute arbitrary code ..."""
     name = "python"
     suffixes = [".py"]
     label = "Python"
