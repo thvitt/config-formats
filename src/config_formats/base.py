@@ -164,6 +164,19 @@ class Format(ABC):
         elif self.stream:
             self.dump(data, self.stream, pretty)
 
+    @classmethod
+    def from_str(cls, source: str) -> Any:
+        stream = PersistentBytesIO(source.encode("utf-8"))
+        format = cls(stream)
+        return format.read()
+
+    @classmethod
+    def to_str(cls, data: Any, pretty: bool = False) -> str:
+        stream = PersistentBytesIO()
+        format = cls(stream)
+        format.dump(data, stream, pretty)
+        return stream.getvalue().decode("utf-8")
+
     @property
     def _src_label(self) -> str:
         if self.use_stdinout:
