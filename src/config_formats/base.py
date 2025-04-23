@@ -1,25 +1,15 @@
 from io import BytesIO
+from os import setegid
 import sys
 from abc import ABC, abstractmethod
 from numbers import Number
 from pathlib import Path
-from typing import IO, Any, ClassVar, Iterable, Mapping, Type
+from types import TracebackType
+from typing import IO, Any, ClassVar, Iterable, Mapping, Sequence, Type, final
 from datetime import date, time, datetime
 import logging
 
 logger = logging.getLogger(__name__)
-
-_SPECIAL = {
-    "null": None,
-    "none": None,
-    "nil": None,
-    "true": True,
-    "false": False,
-    "on": True,
-    "off": False,
-    "yes": True,
-    "no": False,
-}
 
 
 def str2datetime(data: str) -> date | time | datetime | str:
@@ -108,6 +98,16 @@ def dumb_down(
     return str(data)
 
 
+def query(data: Any, path: str) -> Any:
+    import jsonpath
+
+    result = jsonpath.findall(path, data)
+    if isinstance(result, Sequence) and len(result) == 1:
+        result = result[0]
+
+    return result
+
+
 class Format(ABC):
     """ """
 
@@ -143,17 +143,48 @@ class Format(ABC):
             cls.highlight = cls.name
 
     def read(self) -> Any:
-        if self.use_stdinout:
-            return self.load(sys.stdin.buffer)
-        elif self.path:
-            with self.path.open("rb") as f:
-                return self.load(f)
-        elif self.stream:
-            return self.load(self.stream)
-        else:
-            raise ValueError(
-                f"Format {self.name} has neither path nor stream, this is probably a bug."
-            )
+        close_stream = False
+        stream = None
+        try:
+            if self.use_stdinout:
+                stream = sys.stdin.buffer
+            elif self.path:
+                stream = self.path.open("rb")
+            elif self.stream:
+                stream = self.stream
+            else:
+                raise ValueError(
+                    f"Format {self.name} has neither path nor stream, this is probably a bug."
+                )
+            result = self.load(stream)
+            self.check_remainder(stream)
+            return result
+        finally:
+            if stream is not None and close_stream:
+                stream.close()
+
+    def check_remainder(self, stream, force=False):
+        """
+        Check for unread data in the stream.
+
+        Args:
+            stream: an open stream
+            force: if True, unconditionally check independent from strict mode
+
+        Raises:
+            RemainingDataError if there is remaining data.
+        """
+        if self.strict or force:
+            try:
+                remainder = stream.read()
+                if len(remainder):
+                    raise RemainingDataError(remainder, self)
+            except OSError as e:
+                logger.warning(
+                    "An %s occurred while checking for remaining data in the stream of %s. Ignoring.",
+                    e,
+                    self,
+                )
 
     def write(self, data: Any, pretty: bool = False) -> None:
         if self.use_stdinout:
@@ -196,9 +227,41 @@ class Format(ABC):
 
 class PersistentBytesIO(BytesIO):
     def close(self):
-        pass
+        self.seek(0)
 
     def getvalue(self) -> bytes:
         result = super().getvalue()
-        super().close()
+        self.seek(0)
         return result
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        super().close()
+        return super().__exit__(exc_type, exc_val, exc_tb)
+
+
+class RemainingDataError(Exception):
+    def __init__(self, remainder: bytes, format: Format, message: str = ""):
+        error = f"Found {len(remainder)} remaining bytes in stream after parsing {format}: {remainder[:30]}{'...' if len(remainder) > 30 else ''}"
+        if message:
+            error = error + ": " + message
+        self.remainder = remainder
+        self.format = format
+        super().__init__(message)
+
+
+_SPECIAL = {
+    "null": None,
+    "none": None,
+    "nil": None,
+    "true": True,
+    "false": False,
+    "on": True,
+    "off": False,
+    "yes": True,
+    "no": False,
+}

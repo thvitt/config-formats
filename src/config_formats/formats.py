@@ -2,13 +2,14 @@ import logging
 from io import TextIOWrapper
 from typing import IO, Any, Mapping, cast
 
-from msgpack import ExtraData
-
 from .base import Format, dumb_down
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_FORMAT = "yaml"
+
+
+class FormatException(OSError): ...
 
 
 class JSON(Format):
@@ -60,6 +61,9 @@ class TOML(Format):
         data = tomllib.load(stream)
         if len(data) == 1 and "DEFAULT" in data:
             data = data["DEFAULT"]
+        elif len(data) == 0 and self.strict and stream.seekable():
+            stream.seek(0)
+            self.check_remainder(stream)
         return data
 
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
@@ -79,20 +83,32 @@ class MessagePack(Format):
     label = "MessagePack"
 
     def load(self, stream: IO[bytes]) -> Any:
-        from msgpack import load
+        from umsgpack import load, UnpackException
 
         try:
-            return load(stream)
-        except ExtraData as ed:
-            logger.debug("Extra data: %s", ed.extra)
-            if self.strict:
-                raise
-            else:
-                logger.warning("%d bytes of extra data in %s", len(ed.extra), self)
-                return ed.unpacked
+            result = load(stream)
+            logger.debug("stream: %s (%s)", stream, vars(stream))
+            remainder = stream.read()
+            if len(remainder) > 0:
+                msg = f"{self}: {len(remainder)} bytes remaining (starting with {remainder[:50]})"
+                if self.strict:
+                    raise FormatException(msg)
+                else:
+                    logger.warning(msg)
+            return result
+        except UnpackException as e:
+            logger.error("%s reading %s", e, self)
+            raise
+        # except ExtraData as ed:
+        #     logger.debug("Extra data: %s", ed.extra)
+        #     if self.strict:
+        #         raise
+        #     else:
+        #         logger.warning("%d bytes of extra data in %s", len(ed.extra), self)
+        #         return ed.unpacked
 
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
-        from msgpack import dump
+        from umsgpack import dump
 
         dump(data, stream)
 

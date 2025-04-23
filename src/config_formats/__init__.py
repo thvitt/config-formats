@@ -13,7 +13,7 @@ from rich.logging import RichHandler
 from rich.syntax import Syntax
 from rich.table import Table
 
-from .base import Format, PersistentBytesIO, dumb_down
+from .base import Format, PersistentBytesIO, dumb_down, jsonpath_query
 from .formats import DEFAULT_FORMAT
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def format_for(src: Path) -> str | None:
 
 def autodetect_read(src: Path | None) -> tuple[Any, Format]:
     if src is None:
-        src_data = io.BytesIO(sys.stdin.buffer.read())
+        src_data = PersistentBytesIO(sys.stdin.buffer.read())
         src_data.seek(0)
     else:
         src_data = None
@@ -45,7 +45,7 @@ def autodetect_read(src: Path | None) -> tuple[Any, Format]:
                 "%s is not a %s file: %s", src or "stdin", format_type.label, e
             )
             format_errors.append(e)
-            if src_data:
+            if src_data is not None:
                 src_data.seek(0)
     raise ExceptionGroup("No format was able to read the source", format_errors)
 
@@ -92,6 +92,7 @@ def convert(
     to_: Annotated[str | None, Parameter(["-t", "--to"])] = None,
     pretty: bool | None = None,
     simplify: Annotated[bool, Parameter(["-s", "--simplify"])] = False,
+    query: Annotated[str | None, Parameter(["-p", "--path"])] = None,
     verbose: Annotated[bool, Parameter(["-v", "--verbose"], negative=False)] = False,
     debug: Annotated[bool, Parameter(["-vv", "--debug"], negative=False)] = False,
 ):
@@ -107,6 +108,7 @@ def convert(
                 depends on the format. If we are printing to a terminal, we will also try syntax
             highlighting. The default is true for printing to a terminal and false otherwise.
         simplify: force converting all types to the limited set of list, hashmap, string, float, integer, bool and null.
+        query: run the given JSONpath query on the data and return only the result.
         verbose: print info on detected formats etc.
         debug: print detailed info, e.g. on issues causing a format to be rejected during auto-detection
     """
@@ -153,6 +155,9 @@ def convert(
 
     if simplify:
         data = dumb_down(data)
+
+    if query:
+        data = jsonpath_query(data, query)
 
     if pretty is None:
         pretty = dst is None
