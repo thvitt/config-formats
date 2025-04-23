@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from pathlib import Path
 from types import TracebackType
-from typing import IO, Any, ClassVar, Iterable, Mapping, Sequence, Type, final
+from typing import IO, Any, ClassVar, Iterable, Mapping, Sequence, Type, TypeVar, final
 from datetime import date, time, datetime
 import logging
 
@@ -98,13 +98,46 @@ def dumb_down(
     return str(data)
 
 
-def query(data: Any, path: str) -> Any:
+def jsonpath_query(data: Any, path: str) -> Any:
     import jsonpath
 
     result = jsonpath.findall(path, data)
     if isinstance(result, Sequence) and len(result) == 1:
         result = result[0]
 
+    return result
+
+
+T = TypeVar("T")
+
+
+def first(it: Iterable[T]) -> T:
+    try:
+        return next(iter(it))
+    except StopIteration:
+        raise IndexError("Iterable {it} must contain at least one item")
+
+
+def prefix_table(data: Any, prefix: str) -> dict:
+    """
+    Prefix the data with the toml path given in the argument.
+
+    Example:
+        prefix({'foo': 42, 'bar': True}, "tool.example")
+        {'tool': {'example': {'foo': 42, 'bar': True}}}
+
+    """
+    from tomllib import loads
+
+    result = table = loads(
+        f"[{prefix}]"
+    )  # for prefix foo."bar.baz", table will be {"foo": {"bar.baz": {}}}
+
+    while (inner := first(table.values())) != {}:
+        table = inner
+
+    key = first(table.keys())
+    table[key] = data
     return result
 
 

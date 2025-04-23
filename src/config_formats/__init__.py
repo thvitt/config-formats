@@ -13,7 +13,7 @@ from rich.logging import RichHandler
 from rich.syntax import Syntax
 from rich.table import Table
 
-from .base import Format, PersistentBytesIO, dumb_down, jsonpath_query
+from .base import Format, PersistentBytesIO, dumb_down, jsonpath_query, prefix_table
 from .formats import DEFAULT_FORMAT
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,8 @@ def convert(
     to_: Annotated[str | None, Parameter(["-t", "--to"])] = None,
     pretty: bool | None = None,
     simplify: Annotated[bool, Parameter(["-s", "--simplify"])] = False,
-    query: Annotated[str | None, Parameter(["-p", "--path"])] = None,
+    query: Annotated[str | None, Parameter(["-q", "--query"])] = None,
+    prefix: Annotated[str | None, Parameter(["-p", "--prefix"])] = None,
     verbose: Annotated[bool, Parameter(["-v", "--verbose"], negative=False)] = False,
     debug: Annotated[bool, Parameter(["-vv", "--debug"], negative=False)] = False,
 ):
@@ -109,6 +110,7 @@ def convert(
             highlighting. The default is true for printing to a terminal and false otherwise.
         simplify: force converting all types to the limited set of list, hashmap, string, float, integer, bool and null.
         query: run the given JSONpath query on the data and return only the result.
+        prefix: put the data in a mapping defined by the given prefix string (as you would put between the [] of a TOML table header)
         verbose: print info on detected formats etc.
         debug: print detailed info, e.g. on issues causing a format to be rejected during auto-detection
     """
@@ -158,6 +160,9 @@ def convert(
 
     if query:
         data = jsonpath_query(data, query)
+
+    if prefix:
+        data = prefix_table(data, prefix)
 
     if pretty is None:
         pretty = dst is None
