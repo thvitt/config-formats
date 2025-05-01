@@ -1,8 +1,9 @@
 from datetime import date, time
 from textwrap import dedent
+import pytest
 
 
-from config_formats.base import PersistentBytesIO
+from config_formats.base import PersistentBytesIO, Format
 from config_formats.formats import JSON, TOML, YAML, DotEnv, MessagePack
 from config_formats.simplify import RecursiveAdapter
 
@@ -24,6 +25,11 @@ data1 = {
 
 dumb_down = RecursiveAdapter(skip_null_values=True)
 dumb_data = dumb_down(data1)
+
+
+@pytest.mark.parametrize("format", Format.registry.values())
+def test_default_serialization(format: Format):
+    assert format.to_str(data1)
 
 
 def test_json():

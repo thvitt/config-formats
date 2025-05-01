@@ -29,15 +29,14 @@ class JSON(Format):
 
         options = {"indent": 4, "ensure_ascii": False} if pretty else {}
 
-        json.dump(
-            self.pre_dump(data), TextIOWrapper(stream, encoding="utf-8"), **options
-        )
+        json.dump(data, TextIOWrapper(stream, encoding="utf-8"), **options)
 
 
 class JSON5(Format):
     name = "json5"
     suffixes = [".json5"]
     label = "JSON5"
+    pre_dump = RecursiveAdapter()
 
     def load(self, stream: IO[bytes]) -> Any:
         from json5 import load
@@ -76,7 +75,7 @@ class TOML(Format):
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import tomli_w
 
-        processed_data = self.pre_dump(data)
+        processed_data = data
         if not isinstance(processed_data, Mapping):
             processed_data = {"DEFAULT": processed_data}
         tomli_w.dump(processed_data, stream, multiline_strings=pretty)
@@ -86,6 +85,8 @@ class MessagePack(Format):
     name = "msgpack"
     suffixes = [".msgpack"]
     label = "MessagePack"
+    pre_dump = RecursiveAdapter()
+    binary = True
 
     def load(self, stream: IO[bytes]) -> Any:
         from umsgpack import load, UnpackException
@@ -122,6 +123,8 @@ class HJSON(Format):
     name = "hjson"
     suffixes = [".hjson"]
     label = "HJSON"
+    pre_dump = RecursiveAdapter()
+    post_load = RecursiveAdapter()
 
     def load(self, stream: IO[bytes]) -> Any:
         import hjson
@@ -184,7 +187,6 @@ class INI(Format):
 
         if not isinstance(data, Mapping):
             data = {"": data}
-        data = self.pre_dump(data)
         logger.debug("data: %s", data)
 
         for title, content in data.items():
@@ -213,6 +215,7 @@ class SEXP(Format):
     suffixes = [".sexp"]
     label = "S-Expression"
     highlight = "lisp"
+    pre_dump = RecursiveAdapter()
 
     def load(self, stream: IO[bytes]) -> Any:
         from sexpdata import load
@@ -255,6 +258,7 @@ class Pickle(Format):
     name = "pickle"
     suffixes = [".pickle"]
     label = "Python Pickle"
+    binary = True
 
     def load(self, stream: IO[bytes]) -> Any:
         from pickle import load
@@ -279,6 +283,8 @@ class BSON(Format):
     name = "bson"
     suffixes = [".bson"]
     label = "BSON"
+    pre_dump = RecursiveAdapter()
+    binary = True
 
     def load(self, stream):
         import bson
@@ -296,6 +302,7 @@ class EDN(Format):
     suffixes = [".edn"]
     label = "EDN"
     highlight = "clojure"
+    pre_dump = RecursiveAdapter()
 
     def load(self, stream: IO[bytes]) -> Any:
         import edn_format
@@ -384,14 +391,13 @@ class DotEnv(Format):
     def load(self, stream: IO[bytes]) -> Any:
         from dotenv import dotenv_values
 
-        return self.post_load(dotenv_values(stream=TextIOWrapper(stream)))
+        return dotenv_values(stream=TextIOWrapper(stream))
 
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import re
         from shlex import quote
 
         output = TextIOWrapper(stream)
-        data = self.pre_dump(data)
         if not isinstance(data, Mapping):
             raise TypeError(
                 f"Cannot serialize anything but mappings as .env file, but input is a {type(data)}"

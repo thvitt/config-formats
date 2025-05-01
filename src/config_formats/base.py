@@ -6,6 +6,8 @@ from types import TracebackType
 from typing import IO, Any, ClassVar, Iterable, Self, Sequence, Type, TypeVar
 import logging
 
+from config_formats.simplify import RecursiveAdapter
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,9 @@ class Format(ABC):
     suffixes: ClassVar[list[str]]
     label: ClassVar[str]
     registry: ClassVar[dict[str, Type[Self]]] = {}
+    binary: ClassVar[bool] = False
+    pre_dump: ClassVar[RecursiveAdapter | None] = None
+    post_load: ClassVar[RecursiveAdapter | None] = None
 
     use_stdinout: bool = False
     path: Path | None = None
@@ -71,6 +76,18 @@ class Format(ABC):
 
     @abstractmethod
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None: ...
+
+    def smart_load(self, stream: IO[bytes]) -> Any:
+        data = self.load(stream)
+        if self.post_load is None:
+            return data
+        else:
+            return self.post_load(data)
+
+    def smart_dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
+        if self.pre_dump is not None:
+            data = self.pre_dump(data)
+        self.dump(data, stream, pretty)
 
     def __init__(self, path: Path | IO | None, strict: bool = False):
         if path is None:
@@ -100,7 +117,7 @@ class Format(ABC):
                 raise ValueError(
                     f"Format {self.name} has neither path nor stream, this is probably a bug."
                 )
-            result = self.load(stream)
+            result = self.smart_load(stream)
             self.check_remainder(stream)
             return result
         finally:
@@ -132,12 +149,12 @@ class Format(ABC):
 
     def write(self, data: Any, pretty: bool = False) -> None:
         if self.use_stdinout:
-            self.dump(data, sys.stdout.buffer, pretty)
+            self.smart_dump(data, sys.stdout.buffer, pretty)
         elif self.path:
             with self.path.open("wb") as f:
-                self.dump(data, f, pretty)
+                self.smart_dump(data, f, pretty)
         elif self.stream:
-            self.dump(data, self.stream, pretty)
+            self.smart_dump(data, self.stream, pretty)
 
     @classmethod
     def from_str(cls, source: str) -> Any:
@@ -146,11 +163,15 @@ class Format(ABC):
         return format.read()
 
     @classmethod
-    def to_str(cls, data: Any, pretty: bool = False) -> str:
+    def to_str(cls, data: Any, pretty: bool = False) -> str | bytes:
         stream = PersistentBytesIO()
         format = cls(stream)
-        format.dump(data, stream, pretty)
-        return stream.getvalue().decode("utf-8")
+        format.smart_dump(data, stream, pretty)
+        result = stream.getvalue()
+        if cls.binary:
+            return result
+        else:
+            return result.decode("utf-8")
 
     @property
     def _src_label(self) -> str:

@@ -3,7 +3,6 @@ from datetime import date, datetime, time
 from numbers import Number
 from types import NoneType
 from typing import Any, Iterable, Mapping, Type, cast
-from .base import Format
 
 
 @dataclass(repr=False)
@@ -105,6 +104,8 @@ class RecursiveAdapter:
                 pass
 
         if self.max_level is not None and self.max_level == level:
+            from .base import Format
+
             deep_format = Format.registry[self.max_level_format]
             try:
                 return self(deep_format.from_str(data), level + 1)
@@ -208,6 +209,8 @@ class RecursiveAdapter:
 
         if isinstance(data, Mapping):
             if self.max_level == _level:
+                from .base import Format
+
                 return Format.registry[self.max_level_format].to_str(data)
 
             result = {}
@@ -230,6 +233,8 @@ class RecursiveAdapter:
                 if self._is_simple_list(data):
                     return self._join_simple_list(data)
             if self.max_level == _level:
+                from .base import Format
+
                 return Format.registry[self.max_level_format].to_str(data)
 
             return [self(item, _level + 1) for item in data]
