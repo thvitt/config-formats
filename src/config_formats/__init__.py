@@ -64,10 +64,11 @@ def formats(simple: bool = False):
     List the supported file formats.
 
     Args:
-        simple: Only list the identifiers of the formats.
+        simple: Only list the identifier and first extension of each format
     """
     if simple:
-        print(*Format.registry.keys())
+        for format in Format.registry.values():
+            print(format.name, format.suffixes[0], sep="\t")
     else:
         table = Table("ID", "Label", "Extensions", "Notes", box=None)
         for format in Format.registry.values():
