@@ -1,4 +1,3 @@
-import io
 import logging
 import sys
 from importlib.metadata import packages_distributions
@@ -13,7 +12,8 @@ from rich.logging import RichHandler
 from rich.syntax import Syntax
 from rich.table import Table
 
-from .base import Format, PersistentBytesIO, dumb_down, jsonpath_query, prefix_table
+from .base import Format, PersistentBytesIO, jsonpath_query, prefix_table
+from .simplify import RecursiveAdapter
 from .formats import DEFAULT_FORMAT
 
 logger = logging.getLogger(__name__)
@@ -71,8 +71,13 @@ def formats(simple: bool = False):
     else:
         table = Table("ID", "Label", "Extensions", "Notes", box=None)
         for format in Format.registry.values():
+            notes = getdoc(format) or ""
+            if hasattr(format, "post_load"):
+                notes += f"\nafter parsing: {format.post_load}"
+            if hasattr(format, "pre_dump"):
+                notes += f"\nbefore serializing: {format.pre_dump}"
             table.add_row(
-                format.name, format.label, " ".join(format.suffixes), getdoc(format)
+                format.name, format.label, " ".join(format.suffixes), notes.strip()
             )
         rich.get_console().print(table)
 
@@ -91,11 +96,11 @@ def convert(
     ] = None,
     to_: Annotated[str | None, Parameter(["-t", "--to"])] = None,
     pretty: bool | None = None,
-    simplify: Annotated[bool, Parameter(["-s", "--simplify"])] = False,
     query: Annotated[str | None, Parameter(["-q", "--query"])] = None,
     prefix: Annotated[str | None, Parameter(["-p", "--prefix"])] = None,
     verbose: Annotated[bool, Parameter(["-v", "--verbose"], negative=False)] = False,
     debug: Annotated[bool, Parameter(["-vv", "--debug"], negative=False)] = False,
+    simplify: Annotated[bool, Parameter(["-s", "--simplify"])] = False,
 ):
     """
     Convert between configuration formats.
@@ -108,11 +113,11 @@ def convert(
         pretty: pretty-print the output. What this means and whether it makes any difference
                 depends on the format. If we are printing to a terminal, we will also try syntax
             highlighting. The default is true for printing to a terminal and false otherwise.
-        simplify: force converting all types to the limited set of list, hashmap, string, float, integer, bool and null.
         query: run the given JSONpath query on the data and return only the result.
         prefix: put the data in a mapping defined by the given prefix string (as you would put between the [] of a TOML table header)
         verbose: print info on detected formats etc.
         debug: print detailed info, e.g. on issues causing a format to be rejected during auto-detection
+        simplify: force converting all types to the limited set of list, hashmap, string, float, integer, bool and null. Options for simplification:
     """
     if debug:
         level = logging.DEBUG
@@ -156,6 +161,7 @@ def convert(
         sys.exit(3)
 
     if simplify:
+        dumb_down = RecursiveAdapter()
         data = dumb_down(data)
 
     if query:

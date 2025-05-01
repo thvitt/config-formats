@@ -1,10 +1,10 @@
 from datetime import date, time
-from os import path
+from textwrap import dedent
 
-from yaml import serialize
 
-from config_formats.base import PersistentBytesIO, dumb_down
-from config_formats.formats import JSON, TOML, YAML, MessagePack
+from config_formats.base import PersistentBytesIO
+from config_formats.formats import JSON, TOML, YAML, DotEnv, MessagePack
+from config_formats.simplify import RecursiveAdapter
 
 
 data1 = {
@@ -22,13 +22,14 @@ data1 = {
     },
 }
 
-dumb_data = dumb_down(data1, skip_none=True)
+dumb_down = RecursiveAdapter(skip_null_values=True)
+dumb_data = dumb_down(data1)
 
 
 def test_json():
     serialized = JSON.to_str(data1)
     parsed = JSON.from_str(serialized)
-    assert parsed == dumb_down(data1)
+    assert parsed == RecursiveAdapter()(data1)
 
 
 def test_yaml():
@@ -50,3 +51,21 @@ def test_msgpack():
     stream.seek(0)
     parsed = MessagePack(stream).read()
     assert parsed == dumb_data
+
+
+def test_env():
+    data = dedent("""
+        FOO=bla:fasel:blubb
+        BAR=baz
+        NUMBER=42
+        EMPTY=
+        QUOTED="Bla fasel"
+    """)
+    parsed = DotEnv.from_str(data)
+    assert parsed == {
+        "FOO": ["bla", "fasel", "blubb"],
+        "BAR": "baz",
+        "NUMBER": 42,
+        "EMPTY": "",
+        "QUOTED": "Bla fasel",
+    }

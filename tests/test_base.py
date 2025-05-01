@@ -1,5 +1,5 @@
 from datetime import date, datetime, time
-from config_formats.base import str2simpletype
+from config_formats.simplify import RecursiveAdapter
 import pytest
 
 
@@ -8,7 +8,7 @@ import pytest
     [
         ("42", 42),
         ("1.0", 1.0),
-        ("0.1", 0.1),
+        (" 0.1", 0.1),
         ("null", None),
         ("true", True),
         ("bla ", "bla "),
@@ -18,6 +18,7 @@ import pytest
     ],
 )
 def test_str2simpletype_int(string, value):
-    result = str2simpletype(string, date_types=True)
+    convert = RecursiveAdapter(parse_date=True, parse_str=True)
+    result = convert(string)
     assert result == value
     assert type(result) is type(value)

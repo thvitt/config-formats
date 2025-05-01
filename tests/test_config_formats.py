@@ -1,6 +1,7 @@
-from config_formats import dumb_down
 from pathlib import Path
 from fractions import Fraction
+
+from config_formats.simplify import RecursiveAdapter
 
 
 def test_dumb_down_idempotency():
@@ -12,15 +13,18 @@ def test_dumb_down_idempotency():
         False,
         0,
     ]
+    dumb_down = RecursiveAdapter()
     assert dumb_down(already_dumb) == already_dumb
     assert dumb_down("Test") == "Test"
 
 
 def test_dumb_down_set():
+    dumb_down = RecursiveAdapter()
     assert dumb_down({1, 2, 3}) == [1, 2, 3]
     assert type(dumb_down({1, 2, 3})) is list
 
 
 def test_dumb_down_simple():
+    dumb_down = RecursiveAdapter()
     assert dumb_down(Path("foo")) == "foo"
     assert dumb_down(Fraction(3, 4)) == 0.75

@@ -2,7 +2,8 @@ import logging
 from io import TextIOWrapper
 from typing import IO, Any, Mapping, cast
 
-from .base import Format, dumb_down
+from .base import Format
+from .simplify import RecursiveAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class JSON(Format):
     name = "json"
     suffixes = [".json"]
     label = "JSON"
+    pre_dump = RecursiveAdapter()
 
     def load(self, stream: IO[bytes]) -> Any:
         import json
@@ -27,7 +29,9 @@ class JSON(Format):
 
         options = {"indent": 4, "ensure_ascii": False} if pretty else {}
 
-        json.dump(dumb_down(data), TextIOWrapper(stream, encoding="utf-8"), **options)
+        json.dump(
+            self.pre_dump(data), TextIOWrapper(stream, encoding="utf-8"), **options
+        )
 
 
 class JSON5(Format):
@@ -54,6 +58,9 @@ class TOML(Format):
     name = "toml"
     suffixes = [".toml"]
     label = "TOML"
+    pre_dump = RecursiveAdapter(
+        allow_date=True, parse_date=True, skip_null_keys=True, skip_null_values=True
+    )
 
     def load(self, stream: IO[bytes]) -> Any:
         import tomllib
@@ -69,9 +76,7 @@ class TOML(Format):
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import tomli_w
 
-        processed_data = dumb_down(
-            data, allow_date=True, parse_date=True, skip_none=True
-        )
+        processed_data = self.pre_dump(data)
         if not isinstance(processed_data, Mapping):
             processed_data = {"DEFAULT": processed_data}
         tomli_w.dump(processed_data, stream, multiline_strings=pretty)
@@ -142,6 +147,12 @@ class INI(Format):
     name = "ini"
     suffixes = [".ini"]
     label = "INI"
+    post_load = RecursiveAdapter(
+        parse_str=True, parse_date=True, parse_simple_lists=True, max_level=2
+    )
+    pre_dump = RecursiveAdapter(
+        join_simple_lists=True, simple_list_final_separator=True, max_level=2
+    )
 
     def load(self, stream: IO[bytes]) -> Any:
         from configparser import ConfigParser
@@ -157,7 +168,7 @@ class INI(Format):
             TextIOWrapper(stream),
             source=str(self.path) if self.path is not None else None,
         )
-        result = cast(dict, dumb_down(parser, parse_str=True))
+        result = cast(dict, self.post_load(parser))
         if "DEFAULT" in result and not result["DEFAULT"]:
             del result["DEFAULT"]
         unnamed = "<UNNAMED_SECTION>"
@@ -173,7 +184,7 @@ class INI(Format):
 
         if not isinstance(data, Mapping):
             data = {"": data}
-
+        data = self.pre_dump(data)
         logger.debug("data: %s", data)
 
         for title, content in data.items():
@@ -338,17 +349,33 @@ class DotEnv(Format):
     suffixes = [".env", ".envrc"]
     label = ".env"
 
+    post_load = RecursiveAdapter(
+        parse_date=True,
+        parse_str=True,
+        parse_simple_lists=True,
+        simple_list_separator=":",
+        simple_list_final_separator=False,
+        max_level=1,
+    )
+    pre_dump = RecursiveAdapter(
+        force_string_keys=True,
+        join_simple_lists=True,
+        simple_list_separator=":",
+        simple_list_final_separator=False,
+        max_level=1,
+    )
+
     def load(self, stream: IO[bytes]) -> Any:
         from dotenv import dotenv_values
 
-        return dotenv_values(stream=TextIOWrapper(stream))
+        return self.post_load(dotenv_values(stream=TextIOWrapper(stream)))
 
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         import re
         from shlex import quote
 
         output = TextIOWrapper(stream)
-        data = dumb_down(data)
+        data = self.pre_dump(data)
         if not isinstance(data, Mapping):
             raise TypeError(
                 f"Cannot serialize anything but mappings as .env file, but input is a {type(data)}"
@@ -378,4 +405,4 @@ class DotEnv(Format):
                     self,
                 )
                 value = str(value)
-            output.write(f"{key}={quote(value)}\n")
+            output.write(f"{key}={quote(str(value))}\n")
