@@ -275,6 +275,22 @@ class Pickle(Format):
         dump(data, stream)
 
 
+class BSON(Format):
+    name = "bson"
+    suffixes = [".bson"]
+    label = "BSON"
+
+    def load(self, stream):
+        import bson
+
+        return bson.loads(stream.read())
+
+    def dump(self, data, stream, pretty=False):
+        import bson
+
+        stream.write(bson.dumps(data))
+
+
 class EDN(Format):
     name = "edn"
     suffixes = [".edn"]
