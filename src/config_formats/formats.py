@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import logging
 from io import TextIOWrapper
 from typing import IO, Any, Mapping, cast
@@ -30,6 +31,49 @@ class JSON(Format):
         options = {"indent": 4, "ensure_ascii": False} if pretty else {}
 
         json.dump(data, TextIOWrapper(stream, encoding="utf-8"), **options)
+
+
+class JSONL(Format):
+    """
+    Newline-separated JSON objects.
+
+    Actually reads any sequence of valid JSON records that are not separated by anything but whitespace.
+    """
+
+    name = "jsonl"
+    suffixes = [".jsonl", "json"]
+    label = "JSONL"
+    pre_dump = RecursiveAdapter()
+
+    def load(self, stream: IO[bytes]) -> Any:
+        import json
+
+        content = stream.read()
+        result = []
+        while content:
+            try:
+                result.append(json.loads(content))
+                break
+            except json.JSONDecodeError as e:
+                pos = e.pos
+                result.append(json.loads(content[:pos]))
+                content = content[pos:].strip()
+        if len(result) == 1:
+            return result[0]
+        else:
+            return result
+
+    def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
+        import json
+
+        options = {"ensure_ascii": False} if pretty else {}
+        text_stream = TextIOWrapper(stream, encoding="utf-8")
+        if isinstance(data, Sequence):
+            for item in data:
+                json.dump(item, text_stream, **options)
+                text_stream.write("\n")
+        else:
+            json.dump(data, text_stream, **options)
 
 
 class JSON5(Format):
