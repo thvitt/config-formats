@@ -89,7 +89,7 @@ class MessagePack(Format):
     binary = True
 
     def load(self, stream: IO[bytes]) -> Any:
-        from umsgpack import load, UnpackException
+        from umsgpack import UnpackException, load
 
         try:
             result = load(stream)
@@ -183,7 +183,10 @@ class INI(Format):
     def dump(self, data: Any, stream: IO[bytes], pretty: bool = False) -> None:
         from configparser import ConfigParser
 
-        parser = ConfigParser(strict=False, allow_unnamed_section=True)
+        try:
+            parser = ConfigParser(strict=False, allow_unnamed_section=True)
+        except TypeError:
+            parser = ConfigParser(strict=False)
 
         if not isinstance(data, Mapping):
             data = {"": data}
@@ -418,7 +421,7 @@ class DotEnv(Format):
                 sane_key = "_" + sane_key
             if value is None:
                 value = ""
-            if isinstance(value, Mapping) or isinstance(value, list):
+            if isinstance(value, (Mapping, list)):
                 logger.warning(
                     "complex value (a %s) of entry %s (#%d) in %s cannot be fully represented: check the result",
                     type(value),

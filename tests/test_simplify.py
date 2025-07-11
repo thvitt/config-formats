@@ -34,7 +34,7 @@ def test_dumb_down_simple():
 
 
 @pytest.mark.parametrize(
-    "string,value",
+    ("string", "value"),
     [
         ("42", 42),
         ("1.0", 1.0),

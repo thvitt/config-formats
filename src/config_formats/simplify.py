@@ -219,10 +219,7 @@ class RecursiveAdapter:
                     continue
                 if value is None and self.skip_null_values:
                     continue
-                if self.force_string_keys:
-                    key = str(key)
-                else:
-                    key = self(key, _level + 1)
+                key = str(key) if self.force_string_keys else self(key, _level + 1)
                 value = self(value, _level + 1)
                 result[key] = value
             return result
@@ -246,19 +243,22 @@ class RecursiveAdapter:
         result = {}
         for class_field in fields(self):
             value = getattr(self, class_field.name)
-            if class_field.default is not MISSING and class_field.default != value:
-                result[class_field.name] = value
-            elif (
-                class_field.default_factory is not MISSING
-                and class_field.default_factory() != value
+            if (
+                class_field.default is not MISSING
+                and class_field.default != value
+                or (
+                    class_field.default_factory is not MISSING
+                    and class_field.default_factory() != value
+                )
             ):
                 result[class_field.name] = value
         return result
 
     def __str__(self) -> str:
-        return ", ".join(
+        result = ", ".join(
             f"{key}={value!r}" for key, value in self.configured_options().items()
         )
+        return result or "default JSON conversion"
 
     def __repr__(self) -> str:
         params = ", ".join(

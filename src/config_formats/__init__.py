@@ -7,10 +7,13 @@ from typing import Annotated, Any
 
 import rich
 from cyclopts import App, Parameter
+from rich import color
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.syntax import Syntax
+from rich.syntax import ANSISyntaxTheme, Syntax, ANSI_DARK, ANSI_LIGHT
 from rich.table import Table
+
+import colorsaurus
 
 from .base import Format, PersistentBytesIO, jsonpath_query, prefix_table
 from .simplify import RecursiveAdapter
@@ -73,9 +76,9 @@ def formats(simple: bool = False):
         table = Table("ID", "Label", "Extensions", "Notes", box=None)
         for format in Format.registry.values():
             notes = getdoc(format) or ""
-            if hasattr(format, "post_load"):
+            if hasattr(format, "post_load") and format.post_load:
                 notes += f"\nafter parsing: {format.post_load}"
-            if hasattr(format, "pre_dump"):
+            if hasattr(format, "pre_dump") and format.pre_dump:
                 notes += f"\nbefore serializing: {format.pre_dump}"
             table.add_row(
                 format.name, format.label, " ".join(format.suffixes), notes.strip()
@@ -185,6 +188,9 @@ def convert(
                 Syntax(
                     buf.getvalue().decode("utf-8", errors="replace").strip(),
                     lexer=dst_format.highlight,
+                    theme=ANSISyntaxTheme(ANSI_LIGHT)
+                    if colorsaurus.color_scheme() == colorsaurus.ColorScheme.LIGHT
+                    else ANSISyntaxTheme(ANSI_DARK),
                 )
             )
         else:

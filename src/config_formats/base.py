@@ -28,7 +28,7 @@ def first(it: Iterable[T]) -> T:
     try:
         return next(iter(it))
     except StopIteration:
-        raise IndexError("Iterable {it} must contain at least one item")
+        raise IndexError("Iterable {it} must contain at least one item")  # noqa: B904
 
 
 def prefix_table(data: Any, prefix: str) -> dict:
