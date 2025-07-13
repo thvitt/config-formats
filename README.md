@@ -6,32 +6,19 @@ There are many formats that essentially model the same kind of data: nested stru
 
 The list of supported formats can be displayed using `config-formats formats`:
 
- ID       Label          Extensions   Notes
- -------- -------------- ------------ ------------------------------------------
- json     JSON           .json
- toml     TOML           .toml        If the top level item is not a mapping,
-                                      create a mapping with a key called
-                                      "DEFAULT".
- msgpack  MessagePack    .msgpack
- ini      INI            .ini         Windows-Style INI files. Data is expected
-                                      to be in the form {string : { string :
-                                      string }}.
- sexp     S-Expression   .sexp        S-Expressions – very experimental
- python   Python         .py          Python literals. Does not executa
-                                      arbitrary code ...
- pickle   Python Pickle  .pickle      Python pickle files. Reading is
-                                      dangerous, as it can execute arbitrary
-                                      code. Fails if a pickled class cannot be  
-                                      found.
- edn      EDN            .edn
- hocon    HOCON          .hocon
- yaml     YAML           .yaml .yml   Supports almost any (even unsafe) data
-                                      types. Reading is unsafe.
- env      .env           .env .envrc  .env files are essentially environment
-                                      variable associations. Don’t expect
-                                      roundtripping – complex values are not
-                                      really supported, and variable names will
-                                      be sanitized.
+| ID | Label | Extensions | Notes |
+|--------|--------------|------------|------------------------------------------|
+| json | JSON | .json | |
+| toml | TOML | .toml | If the top level item is not a mapping, create a mapping with a key called "DEFAULT". |
+| msgpack | MessagePack | .msgpack | |
+| ini | INI | .ini | Windows-Style INI files. Data is expected to be in the form {string : { string : string }}. |
+| sexp | S-Expression | .sexp | S-Expressions – very experimental |
+| python | Python | .py | Python literals. Does not execute arbitrary code ... |
+| pickle | Python Pickle | .pickle | Python pickle files. Reading is dangerous, as it can execute arbitrary code. Fails if a pickled class cannot be found. |
+| edn | EDN | .edn | |
+| hocon | HOCON | .hocon | |
+| yaml | YAML | .yaml .yml | Supports almost any (even unsafe) data types. Reading is unsafe. |
+| env | .env | .env .envrc | .env files are essentially environment variable associations. Don't expect roundtripping – complex values are not really supported, and variable names will be sanitized. |
 
 ## Usage
 
@@ -63,22 +50,22 @@ Use `config-formats formats` to see which conversions are used for each format.
 
 Here are the currently available options. The default of all boolean options is false/off.
 
-| Option                      | Explanation                                                                                                 |
-|-----------------------------+-------------------------------------------------------------------------------------------------------------|
-| allow_date                  | Retain date and time types in the data instead of converting them to ISO-8601 strings                       |
-| parse_date                  | Try to parse strings as date or time                                                                        |
-| parse_str                   | Try to "upconvert" strings to other simple types (bool, numbers, null)                                      |
-| - special_tokens            | if parse_str is used, convert these strings (true,false,on,off,null) directly to specific non-string values |
-| skip_null_values            | Remove key-value-pairs with a null value from mappings.                                                     |
-| skip_null_keys              | Remove key-value-pairs with a null key from mappings.                                                       |
-| force_string_keys           | Mapping keys are always converted to strings                                                                |
-| parse_simple_lists          | should we try to parse strings into simple lists¹?                                                          |
-| join_simple_lists           | should we convert a list of values that are all simple types to a string¹?                                  |
-| simple_list_separator       | the separator for the simple lists, by default `;`                                                          |
-| simple_list_final_separator | does a simple list always end with the separator? (E.g., in XDG desktop files)                              |
-| simple_types                | (for simple lists, default: bool, int, float, str, NoneType)                                                |
-| max_level                   | Levels deeper than this are serialized/parsed using max_level_format (default: off)                         |
-| max_level_format            | Format for complex structures on level max_level (default: JSON)                                                            |
+| Option | Explanation |
+|------------------------------|-------------------------------------------------------------------------------------------------------------|
+| allow_date | Retain date and time types in the data instead of converting them to ISO-8601 strings |
+| parse_date | Try to parse strings as date or time |
+| parse_str | Try to "upconvert" strings to other simple types (bool, numbers, null) |
+| - special_tokens | if parse_str is used, convert these strings (true,false,on,off,null) directly to specific non-string values |
+| skip_null_values | Remove key-value-pairs with a null value from mappings. |
+| skip_null_keys | Remove key-value-pairs with a null key from mappings. |
+| force_string_keys | Mapping keys are always converted to strings |
+| parse_simple_lists | should we try to parse strings into simple lists¹? |
+| join_simple_lists | should we convert a list of values that are all simple types to a string¹? |
+| simple_list_separator | the separator for the simple lists, by default `;` |
+| simple_list_final_separator | does a simple list always end with the separator? (E.g., in XDG desktop files) |
+| simple_types | (for simple lists, default: bool, int, float, str, NoneType) |
+| max_level | Levels deeper than this are serialized/parsed using max_level_format (default: off) |
+| max_level_format | Format for complex structures on level max_level (default: JSON) |
 
 Environment and INI files do not really have a fully-featured array type, but they sometimes use string values that really are lists of items, separated using a separator like ':' or ';' (think `$PATH`). We call those lists _simple lists_ and can both parse and serialize them on demand. To avoid too many false positives, parsing only works for simple lists with at least three elements (otherwise, e.g., URLs might be split into `["http", "//github.com"]`). Joining lists to a string with a simple list requires each element to be a simple type, which will then be converted to a string first.
 
@@ -117,9 +104,11 @@ independent of the order in which options are given.
 
 ## Exit codes
 
-| 0 | everything went fine        |
-| 1 | invalid command line etc.   |
-| 2 | failed to read input file   |
+| Exit Code | Description |
+|-----------|-------------|
+| 0 | everything went fine |
+| 1 | invalid command line etc. |
+| 2 | failed to read input file |
 | 3 | failed to write output file |
 
 ## Auto-detection
