@@ -1,6 +1,6 @@
 import logging
 import sys
-from importlib.metadata import packages_distributions
+from importlib.metadata import packages_distributions, version
 from inspect import getdoc
 from pathlib import Path
 from typing import Annotated, Any
@@ -20,7 +20,7 @@ from .simplify import RecursiveAdapter
 from .formats import DEFAULT_FORMAT
 
 logger = logging.getLogger(__name__)
-app = App()
+app = App(version_flags=["--version"], version=lambda: version("config-formats"))
 
 
 def format_for(src: Path) -> str | None:
